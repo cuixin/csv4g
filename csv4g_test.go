@@ -19,5 +19,18 @@ func TestParse(t *testing.T) {
         t.Errorf("Error %v\n", err)
         return
     }
-    t.Logf("Result %v\n", data)
+    if testArrayData, ok := data.([]Test); ok {
+        fmt.Println(testArrayData[1])
+    }
+
+    data2, err2 := Parse("test.csv", Test{}, ToMap)
+    fmt.Println(data2)
+    if err2 != nil {
+        t.Errorf("Error %v\n", err2)
+        return
+    }
+
+    if testMapData, ok := data2.(map[string]interface{}); ok {
+        fmt.Println(testMapData["1"])
+    }
 }
