@@ -36,68 +36,36 @@ func setValue(toData interface{}, fields map[string]int,
             }
             f.SetBool(b)
         case reflect.Float32:
-            f32, err := strconv.ParseFloat(values[index], 32)
-            if err != nil {
-                return err
-            }
-            f.SetFloat(f32)
         case reflect.Float64:
             f64, err := strconv.ParseFloat(values[index], 64)
             if err != nil {
                 return err
             }
             f.SetFloat(f64)
+        case reflect.Int:
         case reflect.Int8:
-            i, err := strconv.ParseInt(values[index], 10, 8)
-            if err != nil {
-                return err
-            }
-            f.SetInt(i)
         case reflect.Int16:
-            i, err := strconv.ParseInt(values[index], 10, 16)
-            if err != nil {
-                return err
-            }
-            f.SetInt(i)
         case reflect.Int32:
-            i, err := strconv.ParseInt(values[index], 10, 32)
-            if err != nil {
-                return err
-            }
-            f.SetInt(i)
         case reflect.Int64:
-            i, err := strconv.ParseInt(values[index], 10, 64)
+            i64, err := strconv.ParseInt(values[index], 10, 64)
             if err != nil {
                 return err
             }
-            f.SetInt(i)
+            f.SetInt(i64)
+        case reflect.Uint:
         case reflect.Uint8:
-            i, err := strconv.ParseUint(values[index], 10, 8)
-            if err != nil {
-                return err
-            }
-            f.SetUint(i)
         case reflect.Uint16:
-            i, err := strconv.ParseUint(values[index], 10, 16)
-            if err != nil {
-                return err
-            }
-            f.SetUint(i)
         case reflect.Uint32:
-            i, err := strconv.ParseUint(values[index], 10, 32)
-            if err != nil {
-                return err
-            }
-            f.SetUint(i)
         case reflect.Uint64:
-            i, err := strconv.ParseUint(values[index], 10, 64)
+            ui64, err := strconv.ParseUint(values[index], 10, 64)
             if err != nil {
                 return err
             }
-            f.SetUint(i)
-
+            f.SetUint(ui64)
         case reflect.String:
             f.SetString(values[index])
+        default:
+            return errors.New(fmt.Sprintf("Unsupported field set %s -> %v.", field, values[index]))
         }
     }
     if w, ok := toData.(map[string]interface{}); ok {
