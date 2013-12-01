@@ -10,36 +10,86 @@ import (
     "strconv"
 )
 
-const (
-    ToMap = iota
-    ToArray
-)
-
-func checkFields(fieldMap map[string]int, elem *reflect.Value) error {
-    for f, _ := range fieldMap {
-        if !elem.FieldByName(f).IsValid() {
-            return errors.New(fmt.Sprintf("cannot find field %s", f))
-        }
-    }
-    return nil
+type Csv4g struct {
+    name     string
+    fieldMap map[*reflect.Value]int
+    lines    [][]string
+    lineNo   int
+    LineLen  int
 }
 
-func setValue(toData interface{}, fields map[string]int,
-    values []string, elem *reflect.Value) error {
-    for field, index := range fields {
-        f := elem.FieldByName(field)
+func New(filePath string, comma rune, o interface{}) (*Csv4g, error) {
+    file, openErr := os.Open(filePath)
+    if openErr != nil {
+        return nil, openErr
+    }
+    defer file.Close()
+    r := csv.NewReader(file)
+    r.Comma = comma
+    fields, err := r.Read()
+    if err != nil {
+        return nil, err
+    }
+    value := reflect.ValueOf(o)
+    fieldMap, err := checkFields(fields, &value, file.Name())
+    if err != nil {
+        return nil, errors.New(fmt.Sprintf("%s %s", file.Name(), err.Error()))
+    }
+    var lines [][]string
+    lines, err = r.ReadAll()
+    if err != nil {
+        return nil, err
+    }
+    if len(lines) == 0 {
+        return nil, errors.New(fmt.Sprintf("%s has no data!", file.Name()))
+    }
+    return &Csv4g{name: file.Name(),
+        fieldMap: fieldMap,
+        lines:    lines, lineNo: 0, LineLen: len(lines)}, nil
+}
+
+func checkFields(fields []string, v *reflect.Value, name string) (map[*reflect.Value]int, error) {
+    fm := make(map[*reflect.Value]int)
+    e := v.Elem()
+    for k, v := range fields {
+        f := e.FieldByName(v)
+        if !f.IsValid() {
+            return nil, errors.New(fmt.Sprintf("%s cannot find field %s", name, f))
+        }
+        fm[&f] = k
+    }
+
+    csv_size := len(fm)
+    struct_size := e.NumField()
+    if csv_size < struct_size {
+        return nil, errors.New(fmt.Sprintf(
+            "%s field size is not equal, csv = %d, struct = %d", name,
+            csv_size, struct_size))
+    }
+    return fm, nil
+}
+
+func (this *Csv4g) Parse(obj interface{}) error {
+    if this.lineNo >= len(this.lines) {
+        return io.EOF
+    }
+    defer func() { this.lineNo++ }()
+    values := this.lines[this.lineNo]
+    elem := reflect.ValueOf(obj).Elem()
+    for field, index := range this.fieldMap {
+        f := elem.Field(index)
         switch f.Kind() {
         case reflect.Bool:
             b, err := strconv.ParseBool(values[index])
             if err != nil {
-                return err
+                return errors.New(fmt.Sprintf("%s %v", this.name, err))
             }
             f.SetBool(b)
         case reflect.Float32:
         case reflect.Float64:
             f64, err := strconv.ParseFloat(values[index], 64)
             if err != nil {
-                return err
+                return errors.New(fmt.Sprintf("%s %v", this.name, err))
             }
             f.SetFloat(f64)
         case reflect.Int:
@@ -49,7 +99,7 @@ func setValue(toData interface{}, fields map[string]int,
         case reflect.Int64:
             i64, err := strconv.ParseInt(values[index], 10, 64)
             if err != nil {
-                return err
+                return errors.New(fmt.Sprintf("%s %v", this.name, err))
             }
             f.SetInt(i64)
         case reflect.Uint:
@@ -59,77 +109,16 @@ func setValue(toData interface{}, fields map[string]int,
         case reflect.Uint64:
             ui64, err := strconv.ParseUint(values[index], 10, 64)
             if err != nil {
-                return err
+                return errors.New(fmt.Sprintf("%s %v", this.name, err))
             }
             f.SetUint(ui64)
         case reflect.String:
             f.SetString(values[index])
         default:
-            return errors.New(fmt.Sprintf("Unsupported field set %s -> %v.", field, values[index]))
+            return errors.New(fmt.Sprintf("%s unsupported field set %s -> %v.",
+                this.name, field, values[index]))
         }
     }
-    if w, ok := toData.(map[string]interface{}); ok {
-        w[values[0]] = elem.Interface()
-    }
+
     return nil
-}
-
-func Parse(filePath string, nilType interface{}, toType int) (interface{}, error) {
-    file, openErr := os.Open(filePath)
-    if openErr != nil {
-        return nil, openErr
-    }
-    defer file.Close()
-    r := csv.NewReader(file)
-    fields, err := r.Read()
-    if err != nil {
-        return nil, err
-    }
-    fieldMap := make(map[string]int)
-
-    for k, v := range fields {
-        fieldMap[v] = k
-    }
-    nilObj := reflect.TypeOf(nilType)
-    objPtr := reflect.New(nilObj)
-    elem := objPtr.Elem()
-
-    csv_size := len(fieldMap)
-    struct_size := elem.NumField()
-
-    if csv_size != struct_size {
-        return nil, errors.New(fmt.Sprintf(
-            "%s's field size is not equal, csv = %d, struct = %d",
-            file.Name(), csv_size, struct_size))
-    }
-
-    err = checkFields(fieldMap, &elem)
-    if err != nil {
-        return nil, errors.New(fmt.Sprintf("%s %s", file.Name(), err.Error()))
-    }
-    toData := make(map[string]interface{})
-
-    for {
-        values, err := r.Read()
-        if err != nil {
-            if err != io.EOF {
-                return nil, err
-            }
-            if toType == ToMap {
-                arrData := make([]interface{}, len(toData))
-                for k, v := range toData {
-                    i, _ := strconv.ParseInt(k, 10, 32)
-                    arrData[i] = v
-                }
-                return arrData, nil
-            } else {
-                return toData, nil
-            }
-        }
-        err = setValue(toData, fieldMap, values, &elem)
-        if err != nil {
-            return nil, errors.New(fmt.Sprintf("%s parse data %s", file.Name(), err.Error()))
-        }
-    }
-    return nil, errors.New(fmt.Sprintf("%s has no data!", file.Name()))
 }
