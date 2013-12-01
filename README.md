@@ -12,27 +12,31 @@ example
 -------
 
 ```
-    package main
+package main
 
-    import "github.com/cuixin/csv4g"
-    import "fmt"
+import "github.com/cuixin/csv4g"
+import "fmt"
 
-    type Test struct {
-        Id   int
-        Name string
-        Desc string
-        Go   string
-        Num  float32
-        Foo  bool
+type Test struct {
+    Id   int
+    Name string
+    Desc string
+    Go   string
+    Num  float32
+    Foo  bool
+}
+
+func main() {
+    csv, err := csv4g.New("./csv4g/test.csv", ',', &Test{})
+    if err != nil {
+        fmt.Errorf("Error %v\n", err)
+        return
     }
-
-    func main() {
-        data, err := csv4g.Parse("./csv4g/test.csv", Test{}, csv4g.ToMap)
-        if err != nil {
-            fmt.Println(err)
-            return
-        }
-        fmt.Println(data)
+    for i := 0; i < csv.LineLen; i++ {
+        tt := &Test{}
+        err = csv.Parse(tt)
+        fmt.Println(tt)
     }
+}
 
 ```
