@@ -22,6 +22,9 @@ func TestParse(t *testing.T) {
     for i := 0; i < csv.LineLen; i++ {
         tt := &Test{}
         err = csv.Parse(tt)
+        if err != nil {
+            t.Errorf("Error on parse %v\n", err)
+        }
         fmt.Println(tt)
     }
 }
