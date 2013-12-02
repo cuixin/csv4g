@@ -35,6 +35,10 @@ func main() {
     for i := 0; i < csv.LineLen; i++ {
         tt := &Test{}
         err = csv.Parse(tt)
+        if err != nil {
+            fmt.Printf("Error on parse %v\n", err)
+            return
+        }
         fmt.Println(tt)
     }
 }
