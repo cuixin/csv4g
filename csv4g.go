@@ -18,6 +18,8 @@ type Csv4g struct {
     LineLen  int
 }
 
+const lineOffset = 2
+
 func New(filePath string, comma rune, o interface{}) (*Csv4g, error) {
     file, openErr := os.Open(filePath)
     if openErr != nil {
@@ -82,41 +84,32 @@ func (this *Csv4g) Parse(obj interface{}) error {
         case reflect.Bool:
             b, err := strconv.ParseBool(values[index])
             if err != nil {
-                return errors.New(fmt.Sprintf("%s %v", this.name, err))
+                return fmt.Errorf("%s:[%d] %v", this.name, this.lineNo+lineOffset, err)
             }
             f.SetBool(b)
-        case reflect.Float32:
-        case reflect.Float64:
+        case reflect.Float32, reflect.Float64:
             f64, err := strconv.ParseFloat(values[index], 64)
             if err != nil {
-                return errors.New(fmt.Sprintf("%s %v", this.name, err))
+                return fmt.Errorf("%s:[%d] %v", this.name, this.lineNo+lineOffset, err)
             }
             f.SetFloat(f64)
-        case reflect.Int:
-        case reflect.Int8:
-        case reflect.Int16:
-        case reflect.Int32:
-        case reflect.Int64:
+        case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
             i64, err := strconv.ParseInt(values[index], 10, 64)
             if err != nil {
-                return errors.New(fmt.Sprintf("%s %v", this.name, err))
+                return fmt.Errorf("%s:[%d] %v", this.name, this.lineNo+lineOffset, err)
             }
             f.SetInt(i64)
-        case reflect.Uint:
-        case reflect.Uint8:
-        case reflect.Uint16:
-        case reflect.Uint32:
-        case reflect.Uint64:
+        case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
             ui64, err := strconv.ParseUint(values[index], 10, 64)
             if err != nil {
-                return errors.New(fmt.Sprintf("%s %v", this.name, err))
+                return fmt.Errorf("%s:[%d] %v", this.name, this.lineNo+lineOffset, err)
             }
             f.SetUint(ui64)
         case reflect.String:
             f.SetString(values[index])
         default:
-            return errors.New(fmt.Sprintf("%s unsupported field set %s -> %v.",
-                this.name, field, values[index]))
+            return fmt.Errorf("%s:[%d] unsupported field set %s -> %v :[%d].",
+                this.name, this.lineNo+lineOffset, field, values[index])
         }
     }
 
