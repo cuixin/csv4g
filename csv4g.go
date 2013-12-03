@@ -11,11 +11,11 @@ import (
 )
 
 type Csv4g struct {
-    name     string
-    fieldMap map[*reflect.Value]int
-    lines    [][]string
-    lineNo   int
-    LineLen  int
+    name    string
+    fields  []string
+    lines   [][]string
+    lineNo  int
+    LineLen int
 }
 
 const lineOffset = 2
@@ -33,9 +33,9 @@ func New(filePath string, comma rune, o interface{}) (*Csv4g, error) {
         return nil, err
     }
     value := reflect.ValueOf(o)
-    fieldMap, err := checkFields(fields, &value, file.Name())
+    err = checkFields(fields, &value, file.Name())
     if err != nil {
-        return nil, errors.New(fmt.Sprintf("%s %s", file.Name(), err.Error()))
+        return nil, err
     }
     var lines [][]string
     lines, err = r.ReadAll()
@@ -46,29 +46,19 @@ func New(filePath string, comma rune, o interface{}) (*Csv4g, error) {
         return nil, errors.New(fmt.Sprintf("%s has no data!", file.Name()))
     }
     return &Csv4g{name: file.Name(),
-        fieldMap: fieldMap,
-        lines:    lines, lineNo: 0, LineLen: len(lines)}, nil
+        fields: fields,
+        lines:  lines, lineNo: 0, LineLen: len(lines)}, nil
 }
 
-func checkFields(fields []string, v *reflect.Value, name string) (map[*reflect.Value]int, error) {
-    fm := make(map[*reflect.Value]int)
+func checkFields(fields []string, v *reflect.Value, name string) error {
     e := v.Elem()
-    for k, v := range fields {
+    for _, v := range fields {
         f := e.FieldByName(v)
         if !f.IsValid() {
-            return nil, errors.New(fmt.Sprintf("%s cannot find field %s", name, f))
+            return errors.New(fmt.Sprintf("%s cannot find field %s", name, f))
         }
-        fm[&f] = k
     }
-
-    csv_size := len(fm)
-    struct_size := e.NumField()
-    if csv_size < struct_size {
-        return nil, errors.New(fmt.Sprintf(
-            "%s field size is not equal, csv = %d, struct = %d", name,
-            csv_size, struct_size))
-    }
-    return fm, nil
+    return nil
 }
 
 func (this *Csv4g) Parse(obj interface{}) error {
@@ -78,8 +68,8 @@ func (this *Csv4g) Parse(obj interface{}) error {
     defer func() { this.lineNo++ }()
     values := this.lines[this.lineNo]
     elem := reflect.ValueOf(obj).Elem()
-    for field, index := range this.fieldMap {
-        f := elem.Field(index)
+    for index, field := range this.fields {
+        f := elem.FieldByName(field)
         switch f.Kind() {
         case reflect.Bool:
             b, err := strconv.ParseBool(values[index])
