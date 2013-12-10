@@ -28,12 +28,15 @@ func New(filePath string, comma rune, o interface{}) (*Csv4g, error) {
     defer file.Close()
     r := csv.NewReader(file)
     r.Comma = comma
-    fields, err := r.Read()
+    var err error
+    var fields []string
+    fields, err = r.Read()
     if err != nil {
         return nil, err
     }
     value := reflect.ValueOf(o)
-    err = checkFields(fields, &value, file.Name())
+    var real_fields []string
+    real_fields, err = checkFields(fields, &value, file.Name())
     if err != nil {
         return nil, err
     }
@@ -46,19 +49,29 @@ func New(filePath string, comma rune, o interface{}) (*Csv4g, error) {
         return nil, errors.New(fmt.Sprintf("%s has no data!", file.Name()))
     }
     return &Csv4g{name: file.Name(),
-        fields: fields,
+        fields: real_fields,
         lines:  lines, lineNo: 0, LineLen: len(lines)}, nil
 }
 
-func checkFields(fields []string, v *reflect.Value, name string) error {
+func checkFields(fields []string, v *reflect.Value, name string) ([]string, error) {
     e := v.Elem()
-    for _, v := range fields {
-        f := e.FieldByName(v)
-        if !f.IsValid() {
-            return errors.New(fmt.Sprintf("%s cannot find field %s", name, f))
+    typeOfT := e.Type()
+    real_fields := make([]string, 0, e.NumField())
+    for i := 0; i < e.NumField(); i++ {
+        fName := typeOfT.Field(i).Name
+        isExist := false
+        for _, hasF := range fields {
+            if fName == hasF {
+                isExist = true
+                break
+            }
         }
+        if !isExist {
+            return nil, errors.New(fmt.Sprintf("%s cannot find field %s", name, v))
+        }
+        real_fields = append(real_fields, fName)
     }
-    return nil
+    return real_fields, nil
 }
 
 func (this *Csv4g) Parse(obj interface{}) error {
