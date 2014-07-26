@@ -1,120 +1,115 @@
 package csv4g
 
 import (
-    "encoding/csv"
-    "errors"
-    "fmt"
-    "io"
-    "os"
-    "reflect"
-    "strconv"
+	"encoding/csv"
+	"fmt"
+	"io"
+	"os"
+	"reflect"
+	"strings"
 )
 
 type Csv4g struct {
-    name    string
-    fields  []string
-    lines   [][]string
-    lineNo  int
-    LineLen int
+	name       string
+	fields     []reflect.StructField
+	lines      [][]string
+	lineNo     int
+	LineLen    int
+	lineOffset int
 }
 
-const lineOffset = 2
+func New(filePath string, comma rune, o interface{}, skipLine int) (*Csv4g, error) {
+	file, openErr := os.Open(filePath)
+	if openErr != nil {
+		return nil, fmt.Errorf("%s open file error %v", file.Name, openErr)
+	}
+	defer file.Close()
+	r := csv.NewReader(file)
+	r.Comma = comma
+	var err error
+	var fields []string
+	fields, err = r.Read() // first line is field's description
+	if err != nil {
+		return nil, fmt.Errorf("%s read first line error %v", file.Name, err)
+	}
+	offset := skipLine
+	for skipLine > 0 {
+		skipLine--
+		_, err = r.Read()
+		if err != nil {
+			return nil, fmt.Errorf("%s skip line error %v", file.Name, err)
+		}
+	}
 
-func New(filePath string, comma rune, o interface{}) (*Csv4g, error) {
-    file, openErr := os.Open(filePath)
-    if openErr != nil {
-        return nil, openErr
-    }
-    defer file.Close()
-    r := csv.NewReader(file)
-    r.Comma = comma
-    var err error
-    var fields []string
-    fields, err = r.Read()
-    if err != nil {
-        return nil, err
-    }
-    value := reflect.ValueOf(o)
-    var real_fields []string
-    real_fields, err = checkFields(fields, &value, file.Name())
-    if err != nil {
-        return nil, err
-    }
-    var lines [][]string
-    lines, err = r.ReadAll()
-    if err != nil {
-        return nil, err
-    }
-    if len(lines) == 0 {
-        return nil, errors.New(fmt.Sprintf("%s has no data!", file.Name()))
-    }
-    return &Csv4g{name: file.Name(),
-        fields: real_fields,
-        lines:  lines, lineNo: 0, LineLen: len(lines)}, nil
+	tType := reflect.TypeOf(o)
+	if tType.Kind() != reflect.Struct {
+		return nil, fmt.Errorf("interface must be a struct")
+	}
+	ret := &Csv4g{
+		name:       file.Name(),
+		fields:     make([]reflect.StructField, tType.NumField()),
+		lineNo:     0,
+		lineOffset: offset + 1}
+
+	for i := 0; i < tType.NumField(); i++ {
+		f := tType.Field(i)
+		ret.fields[i] = f
+		isOk := false
+		for j, _ := range fields {
+			if fields[j] == f.Name {
+				isOk = true
+				break
+			}
+		}
+		if !isOk {
+			return nil, fmt.Errorf("%s cannot find field %s", file.Name(), f.Name)
+		}
+	}
+
+	var lines [][]string
+	lines, err = r.ReadAll()
+	if err != nil {
+		return nil, fmt.Errorf("Read error %v", err)
+	}
+	if len(lines) == 0 {
+		return nil, fmt.Errorf("%s has no data!", file.Name())
+	}
+	ret.lines = lines
+	ret.LineLen = len(lines)
+	return ret, nil
 }
 
-func checkFields(fields []string, v *reflect.Value, name string) ([]string, error) {
-    e := v.Elem()
-    typeOfT := e.Type()
-    real_fields := make([]string, 0, e.NumField())
-    for i := 0; i < e.NumField(); i++ {
-        fName := typeOfT.Field(i).Name
-        isExist := false
-        for _, hasF := range fields {
-            if fName == hasF {
-                isExist = true
-                break
-            }
-        }
-        if !isExist {
-            return nil, errors.New(fmt.Sprintf("%s cannot find field %s", name, v))
-        }
-        real_fields = append(real_fields, fName)
-    }
-    return real_fields, nil
-}
-
-func (this *Csv4g) Parse(obj interface{}) error {
-    if this.lineNo >= len(this.lines) {
-        return io.EOF
-    }
-    defer func() { this.lineNo++ }()
-    values := this.lines[this.lineNo]
-    elem := reflect.ValueOf(obj).Elem()
-    for index, field := range this.fields {
-        f := elem.FieldByName(field)
-        switch f.Kind() {
-        case reflect.Bool:
-            b, err := strconv.ParseBool(values[index])
-            if err != nil {
-                return fmt.Errorf("%s:[%d] %v", this.name, this.lineNo+lineOffset, err)
-            }
-            f.SetBool(b)
-        case reflect.Float32, reflect.Float64:
-            f64, err := strconv.ParseFloat(values[index], 64)
-            if err != nil {
-                return fmt.Errorf("%s:[%d] %v", this.name, this.lineNo+lineOffset, err)
-            }
-            f.SetFloat(f64)
-        case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-            i64, err := strconv.ParseInt(values[index], 10, 64)
-            if err != nil {
-                return fmt.Errorf("%s:[%d] %v", this.name, this.lineNo+lineOffset, err)
-            }
-            f.SetInt(i64)
-        case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-            ui64, err := strconv.ParseUint(values[index], 10, 64)
-            if err != nil {
-                return fmt.Errorf("%s:[%d] %v", this.name, this.lineNo+lineOffset, err)
-            }
-            f.SetUint(ui64)
-        case reflect.String:
-            f.SetString(values[index])
-        default:
-            return fmt.Errorf("%s:[%d] unsupported field set %s -> %v :[%d].",
-                this.name, this.lineNo+lineOffset, field, values[index])
-        }
-    }
-
-    return nil
+func (this *Csv4g) Parse(obj interface{}) (err error) {
+	if this.lineNo >= len(this.lines) {
+		return io.EOF
+	}
+	defer func() {
+		if x := recover(); x != nil {
+			err = fmt.Errorf("%s error on parse line %d", this.name, this.lineNo+this.lineOffset+1)
+			return
+		}
+		this.lineNo++
+	}()
+	values := this.lines[this.lineNo]
+	elem := reflect.ValueOf(obj).Elem()
+	for index, _ := range this.fields {
+		f := elem.FieldByIndex(this.fields[index].Index)
+		if conv, ok := converters[f.Kind()]; ok {
+			v := conv(values[index])
+			f.Set(v)
+		} else {
+			if f.Kind() == reflect.Slice {
+				if sliceConv, ok := sliceConvertes[f.Type()]; ok {
+					f.Set(sliceConv(strings.Split(values[index], "|")))
+				} else {
+					err = fmt.Errorf("%s:[%d] unsupported field set %v -> %v :[%d].",
+						this.name, this.lineNo+this.lineOffset, this.fields[index], values[index])
+				}
+			} else {
+				err = fmt.Errorf("%s:[%d] unsupported field set %v -> %v :[%d].",
+					this.name, this.lineNo+this.lineOffset, this.fields[index], values[index])
+			}
+		}
+	}
+	return
 }

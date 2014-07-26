@@ -24,10 +24,12 @@ type Test struct {
     Go   string
     Num  float32
     Foo  bool
+    SliceInt []string
+    SliceFloat32 []string
 }
 
 func main() {
-    csv, err := csv4g.New("./csv4g/test.csv", ',', &Test{})
+    csv, err := csv4g.New("./csv4g/test.csv", ',', &Test{}, 1)
     if err != nil {
         fmt.Errorf("Error %v\n", err)
         return
