@@ -9,9 +9,14 @@ import (
 	"strings"
 )
 
+type FieldDefine struct {
+	reflect.StructField
+	FieldIndex int
+}
+
 type Csv4g struct {
 	name       string
-	fields     []reflect.StructField
+	fields     []*FieldDefine
 	lines      [][]string
 	lineNo     int
 	LineLen    int
@@ -47,23 +52,24 @@ func New(filePath string, comma rune, o interface{}, skipLine int) (*Csv4g, erro
 	}
 	ret := &Csv4g{
 		name:       file.Name(),
-		fields:     make([]reflect.StructField, tType.NumField()),
+		fields:     make([]*FieldDefine, tType.NumField()),
 		lineNo:     0,
 		lineOffset: offset + 1}
 
 	for i := 0; i < tType.NumField(); i++ {
 		f := tType.Field(i)
-		ret.fields[i] = f
-		isOk := false
+		ret.fields[i] = &FieldDefine{f, 0}
+		index := -1
 		for j, _ := range fields {
 			if fields[j] == f.Name {
-				isOk = true
+				index = j
 				break
 			}
 		}
-		if !isOk {
+		if index == -1 {
 			return nil, fmt.Errorf("%s cannot find field %s", file.Name(), f.Name)
 		}
+		ret.fields[i].FieldIndex = index
 	}
 
 	var lines [][]string
@@ -85,7 +91,7 @@ func (this *Csv4g) Parse(obj interface{}) (err error) {
 	}
 	defer func() {
 		if x := recover(); x != nil {
-			err = fmt.Errorf("%s error on parse line %d", this.name, this.lineNo+this.lineOffset+1)
+			err = fmt.Errorf("%s error on parse line %d [%v]", this.name, this.lineNo+this.lineOffset+1, x)
 			return
 		}
 		this.lineNo++
@@ -94,20 +100,21 @@ func (this *Csv4g) Parse(obj interface{}) (err error) {
 	elem := reflect.ValueOf(obj).Elem()
 	for index, _ := range this.fields {
 		f := elem.FieldByIndex(this.fields[index].Index)
+		value := values[this.fields[index].FieldIndex]
 		if conv, ok := converters[f.Kind()]; ok {
-			v := conv(values[index])
+			v := conv(value)
 			f.Set(v)
 		} else {
 			if f.Kind() == reflect.Slice {
 				if sliceConv, ok := sliceConvertes[f.Type()]; ok {
-					f.Set(sliceConv(strings.Split(values[index], "|")))
+					f.Set(sliceConv(strings.Split(value, "|")))
 				} else {
 					err = fmt.Errorf("%s:[%d] unsupported field set %v -> %v :[%d].",
-						this.name, this.lineNo+this.lineOffset, this.fields[index], values[index])
+						this.name, this.lineNo+this.lineOffset, this.fields[index], value)
 				}
 			} else {
 				err = fmt.Errorf("%s:[%d] unsupported field set %v -> %v :[%d].",
-					this.name, this.lineNo+this.lineOffset, this.fields[index], values[index])
+					this.name, this.lineNo+this.lineOffset, this.fields[index], value)
 			}
 		}
 	}

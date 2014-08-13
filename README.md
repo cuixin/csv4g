@@ -29,7 +29,7 @@ type Test struct {
 }
 
 func main() {
-    csv, err := csv4g.New("./csv4g/test.csv", ',', &Test{}, 1)
+    csv, err := csv4g.New("./csv4g/test.csv", ',', Test{}, 1)
     if err != nil {
         fmt.Errorf("Error %v\n", err)
         return
