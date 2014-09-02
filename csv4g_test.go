@@ -12,6 +12,7 @@ type Test struct {
 	Foo          bool
 	SliceInt     []int
 	SliceFloat32 []float32
+	IgnoreField  string `csv:"-"`
 }
 
 func TestParse(t *testing.T) {

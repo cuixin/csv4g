@@ -26,6 +26,7 @@ type Test struct {
     Foo  bool
     SliceInt []string
     SliceFloat32 []string
+    IgnoreField  string `csv:"-"`
 }
 
 func main() {

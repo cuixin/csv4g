@@ -52,13 +52,17 @@ func New(filePath string, comma rune, o interface{}, skipLine int) (*Csv4g, erro
 	}
 	ret := &Csv4g{
 		name:       file.Name(),
-		fields:     make([]*FieldDefine, tType.NumField()),
+		fields:     make([]*FieldDefine, 0),
 		lineNo:     0,
 		lineOffset: offset + 1}
 
 	for i := 0; i < tType.NumField(); i++ {
 		f := tType.Field(i)
-		ret.fields[i] = &FieldDefine{f, 0}
+		if f.Tag.Get("csv") == "-" {
+			continue
+		}
+		fd := &FieldDefine{f, 0}
+		ret.fields = append(ret.fields, fd)
 		index := -1
 		for j, _ := range fields {
 			if fields[j] == f.Name {
@@ -69,7 +73,7 @@ func New(filePath string, comma rune, o interface{}, skipLine int) (*Csv4g, erro
 		if index == -1 {
 			return nil, fmt.Errorf("%s cannot find field %s", file.Name(), f.Name)
 		}
-		ret.fields[i].FieldIndex = index
+		fd.FieldIndex = index
 	}
 
 	var lines [][]string
