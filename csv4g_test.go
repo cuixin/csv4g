@@ -16,7 +16,7 @@ type Test struct {
 }
 
 func TestParse(t *testing.T) {
-	csv, err := New("test.csv", ',', Test{}, 1)
+	csv, err := New("test.csv", ',', true, Test{}, 1)
 	if err != nil {
 		t.Errorf("Error %v\n", err)
 		return

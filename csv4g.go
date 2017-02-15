@@ -23,7 +23,7 @@ type Csv4g struct {
 	lineOffset int
 }
 
-func New(filePath string, comma rune, o interface{}, skipLine int) (*Csv4g, error) {
+func New(filePath string, comma rune, lazyQuotes bool, o interface{}, skipLine int) (*Csv4g, error) {
 	file, openErr := os.Open(filePath)
 	if openErr != nil {
 		return nil, fmt.Errorf("%s open file error %v", file.Name, openErr)
@@ -31,6 +31,7 @@ func New(filePath string, comma rune, o interface{}, skipLine int) (*Csv4g, erro
 	defer file.Close()
 	r := csv.NewReader(file)
 	r.Comma = comma
+	r.LazyQuotes = lazyQuotes
 	var err error
 	var fields []string
 	fields, err = r.Read() // first line is field's description
