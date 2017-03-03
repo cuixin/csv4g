@@ -57,25 +57,37 @@ func New(filePath string, comma rune, lazyQuotes bool, o interface{}, skipLine i
 		lineNo:     0,
 		lineOffset: offset + 1}
 
-	for i := 0; i < tType.NumField(); i++ {
-		f := tType.Field(i)
-		if f.Tag.Get("csv") == "-" {
-			continue
-		}
-		fd := &FieldDefine{f, 0}
-		ret.fields = append(ret.fields, fd)
-		index := -1
-		for j, _ := range fields {
-			if fields[j] == f.Name {
-				index = j
-				break
-			}
-		}
-		if index == -1 {
-			return nil, fmt.Errorf("%s cannot find field %s", file.Name(), f.Name)
-		}
-		fd.FieldIndex = index
-	}
+Out:
+        for i := 0; i < tType.NumField(); i++ {
+                f := tType.Field(i)
+                tagStr := f.Tag.Get("csv")
+                tags := strings.Split(tagStr, ",")
+                canSkip := false
+                for _, tag := range tags {
+                        if tag == "-" {
+                                continue Out
+                        }
+                        if tag == "omitempty" {
+                                canSkip = true
+                        }
+                }
+                fd := &FieldDefine{f, 0}
+                index := -1
+                for j, _ := range fields {
+                        if fields[j] == f.Name {
+                                index = j
+                                break
+                        }
+                }
+                if index == -1 {
+                        if ! canSkip {
+                                return nil, fmt.Errorf("%s cannot find field %s", file.Name(), f.Name)
+                        }
+                        continue
+                }
+                fd.FieldIndex = index
+                ret.fields = append(ret.fields, fd)
+        }
 
 	var lines [][]string
 	lines, err = r.ReadAll()

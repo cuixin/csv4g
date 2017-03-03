@@ -13,23 +13,26 @@ type Test struct {
 	SliceInt     []int
 	SliceFloat32 []float32
 	IgnoreField  string `csv:"-"`
+	EmptyField   string `csv:"omitempty"`
 }
 
 func TestParse(t *testing.T) {
-	csv, err := New("test.csv", ',', true, Test{}, 1)
-	if err != nil {
-		t.Errorf("Error %v\n", err)
-		return
-	}
-	// fmt.Println(csv)
-	for i := 0; i < csv.LineLen; i++ {
-		tt := &Test{}
-		err = csv.Parse(tt)
+	testFiles := []string{"test.csv", "test_empty.csv"}
+	for _, testFile := range testFiles {
+		csv, err := New(testFile, ',', true, Test{}, 1)
 		if err != nil {
-			t.Errorf("%v\n", err)
-			break
+			t.Errorf("Error %v\n", err)
+			return
 		}
-		fmt.Println(tt)
+		// fmt.Println(csv)
+		for i := 0; i < csv.LineLen; i++ {
+			tt := &Test{}
+			err = csv.Parse(tt)
+			if err != nil {
+				t.Errorf("%v\n", err)
+				break
+			}
+			fmt.Println(tt)
+		}
 	}
-
 }
