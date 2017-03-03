@@ -86,7 +86,6 @@ Out:
 		}
 		if index == -1 {
 			if !canSkip {
-				fmt.Println("FieldName", fieldName)
 				return nil, fmt.Errorf("%s cannot find field %s", file.Name(), f.Name)
 			}
 			continue
