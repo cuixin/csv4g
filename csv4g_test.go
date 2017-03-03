@@ -13,6 +13,7 @@ type Test struct {
 	SliceInt     []int
 	SliceFloat32 []float32
 	IgnoreField  string `csv:"-"`
+	CustomField  string `csv:"custom,omitempty"`
 	EmptyField   string `csv:"omitempty"`
 }
 

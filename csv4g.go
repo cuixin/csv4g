@@ -58,36 +58,42 @@ func New(filePath string, comma rune, lazyQuotes bool, o interface{}, skipLine i
 		lineOffset: offset + 1}
 
 Out:
-        for i := 0; i < tType.NumField(); i++ {
-                f := tType.Field(i)
-                tagStr := f.Tag.Get("csv")
-                tags := strings.Split(tagStr, ",")
-                canSkip := false
-                for _, tag := range tags {
-                        if tag == "-" {
-                                continue Out
-                        }
-                        if tag == "omitempty" {
-                                canSkip = true
-                        }
-                }
-                fd := &FieldDefine{f, 0}
-                index := -1
-                for j, _ := range fields {
-                        if fields[j] == f.Name {
-                                index = j
-                                break
-                        }
-                }
-                if index == -1 {
-                        if ! canSkip {
-                                return nil, fmt.Errorf("%s cannot find field %s", file.Name(), f.Name)
-                        }
-                        continue
-                }
-                fd.FieldIndex = index
-                ret.fields = append(ret.fields, fd)
-        }
+	for i := 0; i < tType.NumField(); i++ {
+		f := tType.Field(i)
+		tagStr := f.Tag.Get("csv")
+		fieldName := f.Name
+		canSkip := false
+		if tagStr != "" {
+			tags := strings.Split(tagStr, ",")
+			for _, tag := range tags {
+				switch tag {
+				case "-":
+					continue Out
+				case "omitempty":
+					canSkip = true
+				default:
+					fieldName = tag
+				}
+			}
+		}
+		fd := &FieldDefine{f, 0}
+		index := -1
+		for j, _ := range fields {
+			if fields[j] == fieldName {
+				index = j
+				break
+			}
+		}
+		if index == -1 {
+			if !canSkip {
+				fmt.Println("FieldName", fieldName)
+				return nil, fmt.Errorf("%s cannot find field %s", file.Name(), f.Name)
+			}
+			continue
+		}
+		fd.FieldIndex = index
+		ret.fields = append(ret.fields, fd)
+	}
 
 	var lines [][]string
 	lines, err = r.ReadAll()
