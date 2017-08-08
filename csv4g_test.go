@@ -1,7 +1,9 @@
 package csv4g
 
-import "testing"
-import "fmt"
+import (
+	"fmt"
+	"testing"
+)
 
 type Test struct {
 	Id           int
@@ -41,16 +43,7 @@ func TestParse(t *testing.T) {
 func TestParseWithOptions(t *testing.T) {
 	testFiles := []string{"test.csv", "test_empty.csv"}
 	for _, testFile := range testFiles {
-		comma := func(opt *Option) {
-			opt.Comma = ','
-		}
-		lazyQuotes := func(opt *Option) {
-			opt.LazyQuotes = true
-		}
-		skipLine := func(opt *Option) {
-			opt.SkipLine = 1
-		}
-		csv, err := NewWithOpts(testFile, Test{}, comma, lazyQuotes, skipLine)
+		csv, err := NewWithOpts(testFile, Test{}, Comma(','), LazyQuotes(true), SkipLine(1))
 		if err != nil {
 			t.Errorf("Error %v\n", err)
 			return

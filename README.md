@@ -14,8 +14,11 @@ example
 ```
 package main
 
-import "github.com/cuixin/csv4g"
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/cuixin/csv4g"
+)
 
 type Test struct {
 	Id           int
@@ -32,18 +35,9 @@ type Test struct {
 }
 
 func main() {
-	comma := func(opt *csv4g.Option) {
-		opt.Comma = ',' // default is comma
-	}
-	lazyQuotes := func(opt *csv4g.Option) {
-		opt.LazyQuotes = true // default is false
-	}
-	skipLine := func(opt *csv4g.Option) {
-		opt.SkipLine = 1 // default is 0
-	}
-	csv, err := csv4g.NewWithOpts("test.csv", Test{}, comma, lazyQuotes, skipLine)
+	csv, err := csv4g.NewWithOpts("test.csv", Test{}, csv4g.Comma(','), csv4g.LazyQuotes(true), csv4g.SkipLine(1))
 	if err != nil {
-		fmt.Errorf("Error %v\n", err)
+		fmt.Printf("Error %v\n", err)
 		return
 	}
 	for i := 0; i < csv.LineLen; i++ {

@@ -29,6 +29,10 @@ type Option struct {
 	SkipLine   int
 }
 
+func Comma(r rune) func(*Option)      { return func(opt *Option) { opt.Comma = r } }
+func LazyQuotes(b bool) func(*Option) { return func(opt *Option) { opt.LazyQuotes = b } }
+func SkipLine(l int) func(*Option)    { return func(opt *Option) { opt.SkipLine = l } }
+
 // Deprecated, Please use NewWithOpts
 func New(filePath string, comma rune, lazyQuotes bool, o interface{}, skipLine int) (*Csv4g, error) {
 	file, openErr := os.Open(filePath)
