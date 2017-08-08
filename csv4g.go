@@ -23,10 +23,17 @@ type Csv4g struct {
 	lineOffset int
 }
 
+type Option struct {
+	Comma      rune
+	LazyQuotes bool
+	SkipLine   int
+}
+
+// Deprecated, Please use NewWithOpts
 func New(filePath string, comma rune, lazyQuotes bool, o interface{}, skipLine int) (*Csv4g, error) {
 	file, openErr := os.Open(filePath)
 	if openErr != nil {
-		return nil, fmt.Errorf("%s open file error %v", file.Name, openErr)
+		return nil, fmt.Errorf("%s open file error %v", file.Name(), openErr)
 	}
 	defer file.Close()
 	r := csv.NewReader(file)
@@ -36,20 +43,20 @@ func New(filePath string, comma rune, lazyQuotes bool, o interface{}, skipLine i
 	var fields []string
 	fields, err = r.Read() // first line is field's description
 	if err != nil {
-		return nil, fmt.Errorf("%s read first line error %v", file.Name, err)
+		return nil, fmt.Errorf("%s read first line error %v", file.Name(), err)
 	}
 	offset := skipLine
 	for skipLine > 0 {
 		skipLine--
 		_, err = r.Read()
 		if err != nil {
-			return nil, fmt.Errorf("%s skip line error %v", file.Name, err)
+			return nil, fmt.Errorf("%s skip line error %v", file.Name(), err)
 		}
 	}
 
 	tType := reflect.TypeOf(o)
 	if tType.Kind() != reflect.Struct {
-		return nil, fmt.Errorf("interface must be a struct")
+		return nil, fmt.Errorf("%v must be a struct, cannot be an interface or pointer", tType.Elem().Name())
 	}
 	ret := &Csv4g{
 		name:       file.Name(),
@@ -97,7 +104,97 @@ Out:
 	var lines [][]string
 	lines, err = r.ReadAll()
 	if err != nil {
-		return nil, fmt.Errorf("Read error %v", err)
+		return nil, fmt.Errorf("%s Read error %v", file.Name(), err)
+	}
+	if len(lines) == 0 {
+		return nil, fmt.Errorf("%s has no data!", file.Name())
+	}
+	ret.lines = lines
+	ret.LineLen = len(lines)
+	return ret, nil
+}
+
+func NewWithOpts(filePath string, o interface{}, options ...func(*Option)) (*Csv4g, error) {
+	file, openErr := os.Open(filePath)
+	if openErr != nil {
+		return nil, fmt.Errorf("%s open file error %v", file.Name(), openErr)
+	}
+	defer file.Close()
+
+	defaultOpt := &Option{Comma: ',', LazyQuotes: false, SkipLine: 0}
+	for _, opt := range options {
+		opt(defaultOpt)
+	}
+
+	r := csv.NewReader(file)
+	r.Comma = defaultOpt.Comma
+	r.LazyQuotes = defaultOpt.LazyQuotes
+	var err error
+	var fields []string
+	fields, err = r.Read() // first line is field's description
+	if err != nil {
+		return nil, fmt.Errorf("%s read first line error %v", file.Name(), err)
+	}
+	offset := defaultOpt.SkipLine
+	for i := offset; i > 0; {
+		i--
+		_, err = r.Read()
+		if err != nil {
+			return nil, fmt.Errorf("%s skip line error %v", file.Name(), err)
+		}
+	}
+
+	tType := reflect.TypeOf(o)
+	if tType.Kind() != reflect.Struct {
+		return nil, fmt.Errorf("%v must be a struct, cannot be an interface or pointer", tType.Elem().Name())
+	}
+	ret := &Csv4g{
+		name:       file.Name(),
+		fields:     make([]*FieldDefine, 0),
+		lineNo:     0,
+		lineOffset: offset + 1}
+
+Out:
+	for i := 0; i < tType.NumField(); i++ {
+		f := tType.Field(i)
+		tagStr := f.Tag.Get("csv")
+		fieldName := f.Name
+		canSkip := false
+		if tagStr != "" {
+			tags := strings.Split(tagStr, ",")
+			for _, tag := range tags {
+				switch tag {
+				case "-":
+					continue Out
+				case "omitempty":
+					canSkip = true
+				default:
+					fieldName = tag
+				}
+			}
+		}
+		fd := &FieldDefine{f, 0}
+		index := -1
+		for j, _ := range fields {
+			if fields[j] == fieldName {
+				index = j
+				break
+			}
+		}
+		if index == -1 {
+			if !canSkip {
+				return nil, fmt.Errorf("%s cannot find field %s", file.Name(), f.Name)
+			}
+			continue
+		}
+		fd.FieldIndex = index
+		ret.fields = append(ret.fields, fd)
+	}
+
+	var lines [][]string
+	lines, err = r.ReadAll()
+	if err != nil {
+		return nil, fmt.Errorf("%s read error %v", file.Name(), err)
 	}
 	if len(lines) == 0 {
 		return nil, fmt.Errorf("%s has no data!", file.Name())
