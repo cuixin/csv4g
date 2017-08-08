@@ -11,10 +11,10 @@ type Test struct {
 	Num          float32
 	Foo          bool
 	SliceInt     []int
-	SliceFloat32 []float32
-	IgnoreField  string `csv:"-"`
-	CustomField  string `csv:"custom,omitempty"`
-	EmptyField   string `csv:"omitempty"`
+	SliceFloat32 []float32 `csv:"sliceFloat32"`
+	IgnoreField  string    `csv:"-"`
+	CustomField  string    `csv:"custom,omitempty"`
+	EmptyField   string    `csv:"omitempty"`
 }
 
 func TestParse(t *testing.T) {

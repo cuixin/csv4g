@@ -24,9 +24,11 @@ type Test struct {
 	Go           string
 	Num          float32
 	Foo          bool
-	SliceInt     []string
-	SliceFloat32 []string
-	IgnoreField  string `csv:"-"`
+	SliceInt     []int
+	SliceFloat32 []float32 `csv:"sliceFloat32"`
+	IgnoreField  string    `csv:"-"`
+	CustomField  string    `csv:"custom,omitempty"`
+	EmptyField   string    `csv:"omitempty"`
 }
 
 func main() {
