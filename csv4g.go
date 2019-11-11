@@ -121,7 +121,7 @@ Out:
 func NewWithOpts(filePath string, o interface{}, options ...func(*Option)) (*Csv4g, error) {
 	file, openErr := os.Open(filePath)
 	if openErr != nil {
-		return nil, fmt.Errorf("%s open file error %v", file.Name(), openErr)
+		return nil, fmt.Errorf("%s open file error %v", filePath, openErr)
 	}
 	defer file.Close()
 
